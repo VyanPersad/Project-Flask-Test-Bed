@@ -4,9 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <title>Rendering Dynamic Images Using Flask</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/main.css') }}">
+    <link rel="stylesheet" type="text/css" href="static/styles/main.css">
 </head>
-<body>
-
 <style>
     body{
         margin: auto;
@@ -15,37 +15,113 @@
         grid-auto-rows: auto 1fr auto;
     }
     form{
+        width: 35%;
         margin-top: 15px;
         margin-left: auto;
         margin-right: auto;
         margin-bottom: 10px;
+        padding: 10px;
+        box-shadow: 6px 6px 10px 1px rgba(49,49,49,0.67);
+        border-radius: 10px;
+        text-align: center;
+        vertical-align: auto;
     }
     input{
         height: 45px;
         vertical-align: auto;
     }
-    .centre{
-        margin: auto;
+    header, footer{
+        height: 40px;
+        padding: 5px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        grid-template-rows: 1fr;
+        grid-column-gap: 2px;
+        grid-row-gap: 5px;
+    }
+    header{
+        margin-bottom: 25px;
+    }
+    body{
+        height: 75%;
+        vertical-align: middle;
         margin-top: 15px;
     }
-
+    footer{
+        margin-top: 25px;
+    }
+    .text{
+        margin: auto;
+        font-family: Arial, Helvetica, sans-serif;
+    }
+    .centre{
+        width: 35%;
+        height: 25%;
+        margin: auto;
+        margin-top: 15px;
+        margin-bottom: 15px;
+        padding: 10px;
+        box-shadow: 6px 6px 10px 1px rgba(49,49,49,0.67);
+        border-radius: 5px;
+    }
+    .centreImg{
+        width: 35%;
+        margin: auto;
+        margin-top: 15px;
+        padding: 10px;
+        box-shadow: 6px 6px 10px 1px rgba(49,49,49,0.67);
+        border-radius: 5px;
+    }
+    .centreBlock{
+        margin-top: 15px;
+        margin-bottom: 15px;
+    }
+    .uploadform{
+        height: 45px;
+        padding: auto;
+        vertical-align: middle;
+    }
+    .uploadslot {
+        height: 45px;
+        width: 70%;
+        margin-right: 5px;
+    }
+    .button{
+        height: 45px;
+        width: 25%;
+    }
+    
 </style>
-
-<form class="uploadform" action="{{ url_for('upload_file') }}" enctype="multipart/form-data" method="POST">
-    <input class="uploadslot" name="img" type="file"/>
-    <input class="button" type="submit"/>
-</form>  
-
-<div class="centre">
-    <img src="{{ url_for('static', filename=img_path1) }}" alt=" ">
-</div>
-
-<table class="centre">
-        <tr><td>Hyper<td><td>Norm</td</tr>
-        {% for key, value in textOut1.items() %}
-            <tr><td>{{ key }}<td><td>{{value}}</td</tr> 
-        {% endfor %}
-</table>
+<body>
+    
+    <header>
+        <div></div>
+        <div class="text">University of the West Indies</div>
+        <div></div>
+    </header>
+    <div class="centreBlock">
+        <form class="uploadform" action="{{ url_for('upload_file') }}" enctype="multipart/form-data" method="POST">
+            <input class="uploadslot" name="img" type="file" alt=" " accept="image/*"/>
+            <input class="button" type="submit" value="Upload">
+        </form>
+    
+        <div class="centreImg">
+            <img src="{{ url_for('static', filename=img_path1) }}" alt=" ">
+        </div>
+    
+        <table class="centre">
+                <tr><td class="text">Hyper<td><td>Norm</td></tr>
+                {% for key, value in textOut1.items() %}
+                    <tr><td>{{ key }}<td><td>{{value}}</td></tr>
+                {% endfor %}
+        </table>
+    </div>
+    <footer>
+        <div></div>
+        <div class="text">Diabetes Association of Trinidad & Tobago</div>
+        <div></div>
+    </footer>
 </body>
+
 </html>
 <!--{{ url_for('upload_file') }}-->
