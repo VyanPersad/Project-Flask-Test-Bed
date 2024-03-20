@@ -1,15 +1,25 @@
 from flask import Flask, render_template, request
 from werkzeug.utils import secure_filename
+from skimage.feature import graycomatrix
+from skimage.feature import graycoprops
 import os
 import cv2
 import numpy as np
-import random
 import math
- 
+import csv
+import pandas as pd
+import tensorflow.compat.v1 as tf 
+from keras.models import load_model
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
+
 app = Flask(__name__)
  
 upload_folder = os.path.join('static', 'uploads')
 app.config['UPLOAD'] = upload_folder
+
+model_path = "static/model/my_diabetes_test_model_US.h5"
+model = load_model(model_path)
 
 def sRGBtoLinearRGB(c):
     if c <= 0.04045:
@@ -19,23 +29,24 @@ def sRGBtoLinearRGB(c):
 
 def rgb_to_cmyk(r, g, b):
     if (r, g, b) == (0, 0, 0):
+        k=1
         # black
-        return 0, 0, 0, CMYK_SCALE
+        return 0, 0, 0, 100
 
     # rgb [0,255] -> cmy [0,1]
-    c = 1 - r / RGB_SCALE
-    m = 1 - g / RGB_SCALE
-    y = 1 - b / RGB_SCALE
+    c = 1 - (r / RGB_SCALE)
+    m = 1 - (g / RGB_SCALE)
+    y = 1 - (b / RGB_SCALE)
 
     # extract out k [0, 1]
     min_cmy = min(c, m, y)
-    c = (c - min_cmy) / (1 - min_cmy)
-    m = (m - min_cmy) / (1 - min_cmy)
-    y = (y - min_cmy) / (1 - min_cmy)
-    k = min_cmy
+    c = round((c - min_cmy) / (1 - min_cmy) * 100)
+    m = round((m - min_cmy) / (1 - min_cmy) * 100)
+    y = round((y - min_cmy) / (1 - min_cmy) * 100)
+    k = round(min_cmy)
 
     # rescale to the range [0,CMYK_SCALE]
-    return int(c * CMYK_SCALE), int(m * CMYK_SCALE), int(y * CMYK_SCALE), int(k * CMYK_SCALE) 
+    return int(c), int(m), int(y), int(k) 
 
 def rgbToLab(r, g, b) :
     r = r / 255
@@ -213,31 +224,30 @@ def rgbToXyz(r, g, b):
 RGB_SCALE = 255
 CMYK_SCALE = 100
 
-def get_pigmentation_info(r_min, g_min, b_min):
-    hyperPig = []
-    hyperPig.append(rgb_to_cmyk(r_min, g_min, b_min))
-    hyperPig.append(rgbToLab(r_min, g_min, b_min))
-    hyperPig.append(rgbToHsv(r_min, g_min, b_min))
-    hyperPig.append(rgbToLuminance(r_min, g_min, b_min))
-    hyperPig.append(rgbToTemperature(r_min, g_min, b_min))
-    hyperPig.append(rgbToRyb(r_min, g_min, b_min))
-    hyperPig.append(rgbToXyz(r_min, g_min, b_min))
+def get_pigmentation_info(r, g, b):
+    Pig = []
+    Pig.append(rgb_to_cmyk(r, g, b))
+    Pig.append(rgbToLab(r, g, b))
+    Pig.append(rgbToHsv(r, g, b))
+    Pig.append(rgbToLuminance(r, g, b))
+    Pig.append(rgbToTemperature(r, g, b))
+    Pig.append(rgbToRyb(r, g, b))
+    Pig.append(rgbToXyz(r, g, b))
     
-    hyperPig.reverse()
+    Pig.reverse()
 
-    return hyperPig
-
-
-
-    return normPig
+    return Pig
 
 
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
-    text=""
-    hyperPig=[]
-    normPig=[]
-    pigDict={}
+    
+    cont = ""
+    diss = ""
+    homo = ""
+    ener = ""
+    corr = ""
+    asm = ""
 
     if request.method == 'POST':
         file = request.files['img']
@@ -275,66 +285,96 @@ def upload_file():
         largest_contour_image = cv2.bitwise_and(image, image, mask=largest_contour_mask)
         
         #This specifically writes the image to a file called skin1.png
-        cv2.imwrite('static/skin1.png',largest_contour_image)
-
-        file_path = 'static/skin1.png'
-
+        file_path = 'static/cropped.png'
+        cv2.imwrite(file_path,largest_contour_image)
+        
         img = cv2.imread(file_path)
 
-        imgW = np.size(img,1)
-        imgH = np.size(img,0)
+        gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    
+        #Calculate GLCM with specified parameters
+        distances = [1]  # Distance between pixels
+        angles = [0, np.pi/4, np.pi/2, 3*np.pi/4]  # Angles for pixel pairs
+        levels = 256  # Number of gray levels
+        symmetric = True
+        normed = True
+        
+        glcm = graycomatrix(gray_image, distances, angles, levels=levels, symmetric=symmetric, normed=normed)        
+      
+        cont = round(graycoprops(glcm, 'contrast').ravel()[0], 4)
+        diss = round(graycoprops(glcm, 'dissimilarity').ravel()[0], 4)
+        homo = round(graycoprops(glcm, 'homogeneity').ravel()[0], 4)
+        ener = round(graycoprops(glcm, 'energy').ravel()[0], 4)
+        corr = round(graycoprops(glcm, 'correlation').ravel()[0], 4)
+        asm = round(graycoprops(glcm, 'ASM').ravel()[0], 4)
+        
+        data = [{'Contrast': cont, 'Dissimilarity': diss, 'Homogeneity':homo, 'Energy':ener, 'Correlation':corr, 'ASM':asm}]
 
-        #print(imgW)
-        #print(imgH)
+        header_names = ['Contrast', 'Dissimilarity','Homogeneity','Energy','Correlation','ASM']
 
-        randoW = []
-        randoH = []
-        pxlArray = []
-        grayPixels = []
+        csv_file_path = 'data.csv'
+        file_exists = os.path.exists(csv_file_path)
 
-        count = 0
-        #Set sample size
-        n = 500
-        #Sample pixels
-        #While at the same yime eliminating the wholly black pixels.
-        while count != n: 
-            for i in range(0,n):
-                h = random.randint(1,imgH-1)
-                w = random.randint(1,imgW-1)
-                if(np.any(img[h,w])!=0):
-                    randoW.append(w)
-                    randoH.append(h)
-                    count = count + 1
-                else:
-                    break
+        with open(csv_file_path, mode='a', newline='') as file:
+            writer = csv.DictWriter(file, fieldnames=header_names)
+            
+            # Write header if the file is newly created
+            if not file_exists:
+                writer.writeheader()
+            
+            # Write rows
+            for row in data:
+                writer.writerow(row)
 
-        for i in range(0,n):
-            pxlArray.append(img[randoH[i], randoW[i]])
-            grayPixels.append(int(sum(pxlArray[i])//3))
-
-
-        minPxVal = np.argmin(grayPixels)
-        maxPxVal = np.argmax(grayPixels)
-
-        #The hyperpigmented/darker skin 
-        r_min=pxlArray[minPxVal][0]
-        g_min=pxlArray[minPxVal][1]
-        b_min=pxlArray[minPxVal][2]
-
-        #The "Normal" skin tone
-        r_max=pxlArray[maxPxVal][0]
-        g_max=pxlArray[maxPxVal][1]
-        b_max=pxlArray[maxPxVal][2]
-
-        hyperPig = get_pigmentation_info(r_min, g_min, b_min)
-        normPig = get_pigmentation_info(r_max, g_max, b_max)
-        for key, value in zip(hyperPig,normPig):
-            pigDict[key]=value
-
-
+    
     return render_template('index.html', 
-                               img_path1='skin1.png',
-                               textOut1=pigDict)
- 
+                                img_path1='cropped.png',
+                                CONT=cont,DISS=diss,
+                                HOMO=homo,ENER=ener,
+                                CORR=corr,ASM=asm)
+
+
+@app.route('/predict', methods=['GET', 'POST'])
+def predict():
+    file_path = 'static\model\diabetes.csv'
+    df = pd.read_csv(file_path)
+    scaler =""
+    X = df[['Glucose','Insulin','SkinThickness','BMI']].values
+    y = df['Outcome'].values
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+    X_train.shape
+    X_test.shape
+    scaler = MinMaxScaler()
+    scaler.fit(X_train)
+    X_train = scaler.transform(X_train)
+    X_test = scaler.transform(X_test)
+    model.fit(x=X_train, y=y_train, epochs=250, verbose=0)
+
+    glucose = ""
+    insulin = ""
+    skinThicc = ""
+    bmi = ""
+    prediction = ""
+
+    if request.method == 'POST':
+        glucose = float(request.form['glucose_In'])
+        insulin = float(request.form['insulin_In'])
+        skinThicc = float(request.form['skinthicc_In'])
+        bmi = float(request.form['bmi_In'])
+        
+        patient = np.array([[glucose,insulin,skinThicc,bmi]])
+        patient_scaled = scaler.transform(patient)
+        prediction = model.predict(patient_scaled).tolist() 
+
+        prediction = prediction[0][0]
+
+    return render_template('predict.html', 
+                           glucose=glucose,
+                           insulin=insulin,
+                           skinThicc=skinThicc,
+                           bmi=bmi,
+                           prediction=prediction
+                           )
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

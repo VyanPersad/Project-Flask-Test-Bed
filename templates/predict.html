@@ -50,17 +50,15 @@
     footer{
         margin-top: 25px;
     }
-    img{
-        display: block;
-        margin: auto;
-    }
-
     table{
         margin-left: auto;
         margin-right: auto;
     }
     td{
         width: 16%;
+    }
+    li{
+        list-style: none;
     }
     .text{
         margin: auto;
@@ -91,24 +89,25 @@
     .table{
         width: 45%;
         margin: auto;
-        margin-top: 15px;
+        margin-top: 20px;
         padding: 10px;
         box-shadow: 6px 6px 10px 1px rgba(49,49,49,0.67);
-        border-radius: 5px;
+        border-radius: 10px;
     }
     .uploadform{
-        height: 45px;
         padding: auto;
         vertical-align: middle;
     }
     .uploadslot {
         height: 45px;
-        width: 70%;
-        margin-right: 5px;
+        width: 75%;
+        margin-top: 5px;
+        border-radius: 5px;
     }
     .button{
         height: 45px;
         width: 25%;
+        margin-top: 10px;
     }
     
 </style>
@@ -121,21 +120,20 @@
     </header>
     
     <div class="centreBlock">
-        <form class="uploadform" action="{{ url_for('upload_file') }}" enctype="multipart/form-data" method="POST">
-            <input class="uploadslot" name="img" type="file" alt=" " accept="image/*"/>
-            <input class="button" type="submit" value="Upload">
+        <form class="uploadform" action="{{ url_for('predict') }}" enctype="multipart/form-data" method="POST">
+            <li><input class="uploadslot" type="text" name="glucose_In" placeholder="Enter Glucose Value"></li>
+            <li><input class="uploadslot" type="text" name="insulin_In" placeholder="Enter Insulin Value"></li>
+            <li><input class="uploadslot" type="text" name="skinthicc_In" placeholder="Enter Skin Thickness Value"></li>
+            <li><input class="uploadslot" type="text" name="bmi_In" placeholder="Enter BMI Value"></li>
+            <li><input class="button" class="button" type="submit" value="Upload"></li>
         </form>
-    
-        <div class="centreImg">
-            <img src="{{ url_for('static', filename=img_path1) }}" alt=" ">
-        </div>
-        <div class="table">
-            <table>
-                <tr><td>Contrast</td><td>Dissimilarity</td><td>Homogeneity</td><td>Energy</td><td>Correlation</td><td>ASM</td></tr>
-                <tr><td>{{CONT}}</td><td>{{DISS}}</td><td>{{HOMO}}</td><td>{{ENER}}</td><td>{{CORR}}</td><td>{{ASM}}</td></tr>
-            </table>
-        </div>
+    </div>
 
+    <div class="table">
+        <table>
+            <tr><td>Glucose</td><td>Insulin</td><td>Skin Thickness</td><td>BMI</td><td>Prediction</td></tr>
+            <tr><td>{{glucose}}</td><td>{{insulin}}</td><td>{{skinThicc}}</td><td>{{bmi}}</td><td>{{prediction}}</td></tr>
+        </table>
     </div>
 
     <footer>
