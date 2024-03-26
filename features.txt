@@ -1,0 +1,149 @@
+import numpy as np
+import cv2
+from skimage.feature import graycomatrix, graycoprops
+from skimage.filters import gabor
+
+def extract_shadow(image_path):
+    try:
+        # Load the image
+        image = cv2.imread(image_path)
+        
+        # Check if the image was successfully loaded
+        if image is None:
+            print("Error: Unable to load image.")
+            return None, None, None, None, None
+
+        # Convert the image to grayscale
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        # Apply Gaussian blur to reduce noise
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+
+        # Use adaptive thresholding to detect shadows
+        _, shadow_mask = cv2.threshold(blurred, 100, 255, cv2.THRESH_BINARY_INV)
+
+        # Optional: Perform morphological operations to refine the shadow mask
+        kernel = np.ones((5,5),np.uint8)
+        shadow_mask = cv2.morphologyEx(shadow_mask, cv2.MORPH_CLOSE, kernel)
+
+        # Bitwise AND operation to extract shadows from the original image
+        shadow = cv2.bitwise_and(image, image, mask=shadow_mask)
+
+        # Perform texture analysis using LBP
+        lbp_features = extract_lbp_features(gray)
+
+        # Perform image segmentation
+        segmented_image = segment_image(image)
+
+        # Perform GLCM feature extraction
+        glcm_features, glcm_props = extract_glcm_features(gray)
+
+        # Perform Gabor filter-based texture analysis
+        gabor_features = extract_gabor_features(gray)
+
+        return shadow, lbp_features, segmented_image, glcm_features, glcm_props, gabor_features
+    
+    except Exception as e:
+        print("Error:", e)
+        return None, None, None, None, None, None
+
+def extract_lbp_features(gray_image):
+    # Initialize LBP parameters
+    lbp_radius = 1
+    lbp_points = 8 * lbp_radius
+
+    # Compute LBP texture features
+    lbp = local_binary_pattern(gray_image, lbp_points, lbp_radius)
+
+    # Compute histogram of LBP
+    lbp_hist, _ = np.histogram(lbp, bins=np.arange(0, lbp_points + 3), range=(0, lbp_points + 2))
+
+    return lbp_hist
+
+def local_binary_pattern(image, num_points, radius):
+    # Compute LBP
+    lbp = np.zeros_like(image)
+    for y in range(radius, image.shape[0] - radius):
+        for x in range(radius, image.shape[1] - radius):
+            center = image[y, x]
+            lbp_code = 0
+            for i in range(num_points):
+                angle = i * (2 * np.pi / num_points)
+                dx = int(round(radius * np.cos(angle)))
+                dy = int(round(radius * np.sin(angle)))
+                neighbor = image[y + dy, x + dx]
+                lbp_code |= (neighbor > center) << i
+            lbp[y, x] = lbp_code
+    return lbp
+
+def segment_image(image):
+    # Perform image segmentation (example: simple thresholding)
+    _, segmented_image = cv2.threshold(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY), 128, 255, cv2.THRESH_BINARY)
+    
+    return segmented_image
+
+def extract_glcm_features(gray_image):
+    # Compute GLCM
+    distances = [1]
+    angles = [0, np.pi/4, np.pi/2, 3*np.pi/4]
+    glcm = graycomatrix(gray_image, distances=distances, angles=angles, symmetric=True, normed=True)
+    
+    # Compute GLCM properties
+    glcm_props = ['contrast', 'dissimilarity', 'homogeneity', 'energy', 'correlation']
+    glcm_features = np.concatenate([graycoprops(glcm, prop).ravel() for prop in glcm_props])
+
+    return glcm_features, glcm_props
+
+def extract_gabor_features(gray_image):
+    # Define parameters for Gabor filter
+    frequencies = [0.1, 0.3, 0.5]
+    thetas = [0, np.pi/4, np.pi/2, 3*np.pi/4]
+    kernels = []
+
+    # Generate Gabor filter kernels
+    for frequency in frequencies:
+        for theta in thetas:
+            kernel = np.real(gabor(gray_image, frequency, theta=theta))
+            kernels.append(np.mean(kernel))
+
+    # Convert the list of Gabor features to a numpy array
+    gabor_features = np.array(kernels)
+
+    return gabor_features
+
+# Example usage:
+image_path = "skin55.png"
+shadow_image, lbp_features, segmented_image, glcm_features, glcm_props, gabor_features = extract_shadow(image_path)
+
+# if shadow_image is not None:
+#     cv2.imwrite("shadow_detection_result.jpg", shadow_image)
+#     print("Shadow extraction successful.")
+#     print("Shadow values:")
+#     print(shadow_image)
+# else:
+#     print("Shadow extraction failed.")
+
+if lbp_features is not None:
+    print("LBP Features:", lbp_features)
+else:
+    print("LBP feature extraction failed.")
+
+if segmented_image is not None:
+    cv2.imwrite("segmented_image.jpg", segmented_image)
+    print("Image segmentation successful.")
+    print("Segmented image values:")
+    print(segmented_image)
+else:
+    print("Image segmentation failed.")
+
+if glcm_features is not None:
+    print("GLCM Features:")
+    for prop, value in zip(glcm_props, glcm_features):
+        print(prop + ":", value)
+else:
+    print("GLCM feature extraction failed.")
+
+if gabor_features is not None:
+    print("Gabor Features:", gabor_features)
+else:
+    print("Gabor filter feature extraction failed.")

@@ -284,13 +284,11 @@ def upload_file():
         cv2.drawContours(largest_contour_mask, [largest_contour], 0, 255, thickness=cv2.FILLED)
         largest_contour_image = cv2.bitwise_and(image, image, mask=largest_contour_mask)
         
-        #This specifically writes the image to a file called skin1.png
         file_path = 'static/cropped.png'
         cv2.imwrite(file_path,largest_contour_image)
         
         img = cv2.imread(file_path)
-
-        gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        gray_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     
         #Calculate GLCM with specified parameters
         distances = [1]  # Distance between pixels
@@ -307,25 +305,6 @@ def upload_file():
         ener = round(graycoprops(glcm, 'energy').ravel()[0], 4)
         corr = round(graycoprops(glcm, 'correlation').ravel()[0], 4)
         asm = round(graycoprops(glcm, 'ASM').ravel()[0], 4)
-        
-        data = [{'Contrast': cont, 'Dissimilarity': diss, 'Homogeneity':homo, 'Energy':ener, 'Correlation':corr, 'ASM':asm}]
-
-        header_names = ['Contrast', 'Dissimilarity','Homogeneity','Energy','Correlation','ASM']
-
-        csv_file_path = 'data.csv'
-        file_exists = os.path.exists(csv_file_path)
-
-        with open(csv_file_path, mode='a', newline='') as file:
-            writer = csv.DictWriter(file, fieldnames=header_names)
-            
-            # Write header if the file is newly created
-            if not file_exists:
-                writer.writeheader()
-            
-            # Write rows
-            for row in data:
-                writer.writerow(row)
-
     
     return render_template('index.html', 
                                 img_path1='cropped.png',
