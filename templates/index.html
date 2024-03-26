@@ -8,6 +8,7 @@
     <link rel="stylesheet" type="text/css" href="static/styles/main.css">
 </head>
 
+
 <body>
     
     <header>
@@ -23,10 +24,11 @@
         </form>
     
         <div class="centreImg">
-            <img src="{{ url_for('static', filename=img_path1) }}" alt=" ">
+            <img class="image" src="{{ url_for('static', filename=img_path1) }}" alt=" ">
         </div>
         <div class="table">
             <table>
+                <tr>Stats for Nerds</tr>
                 <tr><td>Contrast</td><td>Dissimilarity</td><td>Homogeneity</td><td>Energy</td><td>Correlation</td><td>ASM</td></tr>
                 <tr><td>{{CONT}}</td><td>{{DISS}}</td><td>{{HOMO}}</td><td>{{ENER}}</td><td>{{CORR}}</td><td>{{ASM}}</td></tr>
             </table>
@@ -43,3 +45,4 @@
 
 </html>
 <!--{{ url_for('upload_file') }}-->
+<!--<img class="image" src="{{ url_for('static', filename=img_path1) }}" alt=" ">-->

@@ -45,6 +45,10 @@ table{
     margin-left: auto;
     margin-right: auto;
 }
+tr{
+    text-justify: auto;
+    text-align: center;
+}
 td{
     width: 16%;
     text-align: center;
@@ -68,13 +72,16 @@ li{
     border-radius: 5px;
 }
 .centreImg{
-    width: 45%;
+    width: 70%;
+    display: block;
     margin: auto;
+    text-align: center;
     margin-top: 15px;
     padding: 10px;
     box-shadow: 6px 6px 10px 1px rgba(49,49,49,0.67);
     border-radius: 5px;
 }
+
 .centreBlock{
     margin-top: 15px;
     margin-bottom: 15px;
