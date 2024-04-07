@@ -2,13 +2,15 @@ from flask import Flask, render_template, request
 from werkzeug.utils import secure_filename
 from skimage.feature import graycomatrix
 from skimage.feature import graycoprops
+from skimage.filters import gabor
 import os
 import cv2
 import numpy as np
 import math
 import csv
 import pandas as pd
-import tensorflow.compat.v1 as tf 
+#import tensorflow.compat.v1 as tf
+import tensorflow as tf 
 from keras.models import load_model
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
@@ -20,6 +22,9 @@ app.config['UPLOAD'] = upload_folder
 
 model_path = "static/model/my_diabetes_test_model_US.h5"
 model = load_model(model_path)
+
+model_path_2 = "static/model/my_diabetes_80-20_split_BC.h5"
+model_2 = load_model(model_path_2)
 
 def sRGBtoLinearRGB(c):
     if c <= 0.04045:
@@ -242,13 +247,36 @@ def get_pigmentation_info(r, g, b):
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
     
+    file_path = 'static\model\Sanitised_Data.csv'
+    df = pd.read_csv(file_path)
+    scaler =""
+    X = df[['Dissimilarity','ASM','Energy','Gabor5','Gabor6','Gabor7','Gabor8','Gabor9','Gabor10','Gabor11','k-Value']].values
+    y = df['Outcome'].values
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train.shape
+    X_test.shape
+    scaler = MinMaxScaler()
+    scaler.fit(X_train)
+    X_train = scaler.transform(X_train)
+    X_test = scaler.transform(X_test)
+    model_2.fit(x=X_train, y=y_train, epochs=250, verbose=0)
+
     cont = ""
     diss = ""
     homo = ""
     ener = ""
     corr = ""
     asm = ""
-
+    g5=""
+    g6=""
+    g7=""
+    g8=""
+    g9=""
+    g10=""
+    g11=""
+    k_value=""
+    prediction = ""
+    
     if request.method == 'POST':
         file = request.files['img']
         filename = secure_filename(file.filename)
@@ -298,19 +326,56 @@ def upload_file():
         normed = True
         
         glcm = graycomatrix(gray_image, distances, angles, levels=levels, symmetric=symmetric, normed=normed)        
-      
-        cont = round(graycoprops(glcm, 'contrast').ravel()[0], 4)
+        #cont = round(graycoprops(glcm, 'contrast').ravel()[0], 4)
         diss = round(graycoprops(glcm, 'dissimilarity').ravel()[0], 4)
-        homo = round(graycoprops(glcm, 'homogeneity').ravel()[0], 4)
+        #homo = round(graycoprops(glcm, 'homogeneity').ravel()[0], 4)
         ener = round(graycoprops(glcm, 'energy').ravel()[0], 4)
-        corr = round(graycoprops(glcm, 'correlation').ravel()[0], 4)
+        #corr = round(graycoprops(glcm, 'correlation').ravel()[0], 4)
         asm = round(graycoprops(glcm, 'ASM').ravel()[0], 4)
+
+        frequencies = [0.1, 0.3, 0.5]
+        kernels = []
+
+        # Generate Gabor filter kernels
+        for frequency in frequencies:
+            for theta in angles:
+                kernel = np.real(gabor(gray_image, frequency, theta=theta))
+                kernels.append(np.mean(kernel))
+
+        # Convert the list of Gabor features to a numpy array
+        gabor_features = np.array(kernels)
+        g5 = round(gabor_features[4],4)
+        g6 = round(gabor_features[5],4)
+        g7 = round(gabor_features[6],4)
+        g8 = round(gabor_features[7],4)
+        g9 = round(gabor_features[8],4)
+        g10 = round(gabor_features[9],4)
+        g11 = round(gabor_features[10],4)
+
+        # Convert the cropped image to CMYK color space manually
+        b, g, r = cv2.split(img)
+        c = 255 - r
+        m = 255 - g
+        y = 255 - b
+        k = np.minimum(np.minimum(c, m), y)
+        c = cv2.subtract(c, k)
+        m = cv2.subtract(m, k)
+        y = cv2.subtract(y, k)
+        # Compute the average value of the K channel
+        k_value = np.mean(k)
+
+        patient = np.array([[diss,asm, ener,g5,g6,g7,g8,g9,g10,g11,k_value]])
+        patient_scaled = scaler.transform(patient)
+        prediction = model_2.predict(patient_scaled).tolist() 
+
+        prediction = prediction[0][0]
     
     return render_template('index.html', 
                                 img_path1='cropped.png',
                                 CONT=cont,DISS=diss,
                                 HOMO=homo,ENER=ener,
-                                CORR=corr,ASM=asm)
+                                CORR=corr,ASM=asm,
+                                prediction = prediction)
 
 
 @app.route('/predict', methods=['GET', 'POST'])
