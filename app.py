@@ -20,10 +20,7 @@ app = Flask(__name__)
 upload_folder = os.path.join('static', 'uploads')
 app.config['UPLOAD'] = upload_folder
 
-model_path = "static/model/my_diabetes_test_model_US.h5"
-model = load_model(model_path)
-
-model_path_2 = "static/model/my_diabetes_80-20_split_BC.h5"
+model_path_2 = "static/model/my_diabetes_BM.h5"
 model_2 = load_model(model_path_2)
 
 def sRGBtoLinearRGB(c):
@@ -247,11 +244,11 @@ def get_pigmentation_info(r, g, b):
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
     
-    file_path = 'static\model\Sanitised_Data.csv'
+    file_path = 'static/model/trimmed_data_2.csv'
     df = pd.read_csv(file_path)
     scaler =""
-    X = df[['Dissimilarity','ASM','Energy','Gabor5','Gabor6','Gabor7','Gabor8','Gabor9','Gabor10','Gabor11','k-Value']].values
-    y = df['Outcome'].values
+    X = df[['Contrast',	'Dissimilarity',	'Homogeneity',	'Energy',	'Correlation',	'ASM','Gabor1','Gabor2','Gabor2','Gabor4','Gabor5','Gabor6','Gabor7','Gabor8','Gabor9','Gabor10','Gabor11','k-Value']].values
+    y = df["Outcome"]
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     X_train.shape
     X_test.shape
@@ -259,7 +256,7 @@ def upload_file():
     scaler.fit(X_train)
     X_train = scaler.transform(X_train)
     X_test = scaler.transform(X_test)
-    model_2.fit(x=X_train, y=y_train, epochs=250, verbose=0)
+    #model_2.fit(x=X_train, y=y_train, epochs=250, verbose=0)
 
     cont = ""
     diss = ""
@@ -267,6 +264,10 @@ def upload_file():
     ener = ""
     corr = ""
     asm = ""
+    g1=""
+    g2=""
+    g3=""
+    g4=""
     g5=""
     g6=""
     g7=""
@@ -276,6 +277,7 @@ def upload_file():
     g11=""
     k_value=""
     prediction = ""
+    outcome = ""
     
     if request.method == 'POST':
         file = request.files['img']
@@ -326,11 +328,12 @@ def upload_file():
         normed = True
         
         glcm = graycomatrix(gray_image, distances, angles, levels=levels, symmetric=symmetric, normed=normed)        
-        #cont = round(graycoprops(glcm, 'contrast').ravel()[0], 4)
+        
+        cont = round(graycoprops(glcm, 'contrast').ravel()[0], 4)
         diss = round(graycoprops(glcm, 'dissimilarity').ravel()[0], 4)
-        #homo = round(graycoprops(glcm, 'homogeneity').ravel()[0], 4)
+        homo = round(graycoprops(glcm, 'homogeneity').ravel()[0], 4)
         ener = round(graycoprops(glcm, 'energy').ravel()[0], 4)
-        #corr = round(graycoprops(glcm, 'correlation').ravel()[0], 4)
+        corr = round(graycoprops(glcm, 'correlation').ravel()[0], 4)
         asm = round(graycoprops(glcm, 'ASM').ravel()[0], 4)
 
         frequencies = [0.1, 0.3, 0.5]
@@ -344,6 +347,10 @@ def upload_file():
 
         # Convert the list of Gabor features to a numpy array
         gabor_features = np.array(kernels)
+        g1 = round(gabor_features[0],4)
+        g2 = round(gabor_features[1],4)
+        g3 = round(gabor_features[2],4)
+        g4 = round(gabor_features[3],4)
         g5 = round(gabor_features[4],4)
         g6 = round(gabor_features[5],4)
         g7 = round(gabor_features[6],4)
@@ -363,19 +370,27 @@ def upload_file():
         y = cv2.subtract(y, k)
         # Compute the average value of the K channel
         k_value = np.mean(k)
+        #X = df[['Dissimilarity','Contrast','Gabor6','Gabor7','Gabor8','Gabor9','Gabor10','Gabor11']].values
 
-        patient = np.array([[diss,asm, ener,g5,g6,g7,g8,g9,g10,g11,k_value]])
+        #X = df[['Contrast',	'Dissimilarity',	'Homogeneity',	'Energy',	'Correlation',	'ASM',
+        #'Gabor1','Gabor2','Gabor2','Gabor4','Gabor5','Gabor6','Gabor7','Gabor8','Gabor9','Gabor10','Gabor11','k-Value']].values
+        patient = np.array([
+            [cont,diss,homo,ener,corr,asm,
+             g1,g2,g3,g4,g5,g6,g7,g8,g9,g10,g11,
+             k_value]])
         patient_scaled = scaler.transform(patient)
         prediction = model_2.predict(patient_scaled).tolist() 
 
         prediction = prediction[0][0]
+        if prediction >= 0.5:
+            outcome = "Potentially Positive"
+        elif prediction < 0.5:
+            outcome = "Potentially Negative"
+
     
     return render_template('index.html', 
                                 img_path1='cropped.png',
-                                CONT=cont,DISS=diss,
-                                HOMO=homo,ENER=ener,
-                                CORR=corr,ASM=asm,
-                                prediction = prediction)
+                                outcome = outcome)
 
 
 @app.route('/predict', methods=['GET', 'POST'])
